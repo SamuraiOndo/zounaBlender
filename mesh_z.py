@@ -104,15 +104,17 @@ def readSkel_Z(bs):
     box_col_bones_count = bs.read_uint32()
     bs.seek(box_col_bones_count * 19 * 4, 1)
     
-def execute(skelCrc32,rootpath):
+def execute(skelCrc32,skinCrc32,rootpath):
     bs = binary_reader.BinaryReader(open(rootpath + "\\" + (str(skelCrc32) + ".Skel_Z"), "rb").read())
 
     skel = readSkel_Z(bs)
     
-    armature = bpy.data.armatures.new("Armature")
+    if (bpy.data.armatures.get("Skin_"+str(skinCrc32)+"_skeleton") != None):
+        bpy.data.armatures.remove(bpy.data.armatures.get("Skin_"+str(skinCrc32)+"_skeleton"))
+    armature = bpy.data.armatures.new("Skin_"+str(skinCrc32)+"_skeleton")
     armature.display_type = "STICK"
     
-    rig = bpy.data.objects.new("Armature", armature)
+    rig = bpy.data.objects.new("Skin_"+str(skinCrc32), armature)
     rig.show_in_front = True
     
     context = bpy.context
@@ -205,7 +207,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
     for i in range(matCrc32Count):
         matCrc32List.append(str(reader.read_uint32()))
         if addMatIndices: subsectionMatIndices.append(i)
-    rootpath = rootpath + "\\"
+    rootpath += "\\"
     for h in matCrc32List:
         try:
             mat = bpy.data.materials.new(name=str(h))
@@ -242,7 +244,6 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
             link(imagetexture.outputs[0], bdsf.inputs[0])
             link(imagetexture.outputs[1], bdsf.inputs[21])
             bdsf.inputs['Specular'].default_value = 0
-            bdsf.active_material.blend_method = 'BLEND'
         except:
             pass
 
@@ -400,7 +401,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
         newmesh.create_normals_split()
         newmesh.normals_split_custom_set_from_vertices(normals2)
         
-        newobject = bpy.data.objects.new((name + "_" + str(i)), newmesh)
+        newobject = bpy.data.objects.new(("Mesh_"+name + "_VertGrp_" + str(i)), newmesh)
         meshObjects.append(newobject)
         bpy.context.view_layer.active_layer_collection.collection.objects.link(newobject)
         normals2.clear()
@@ -436,7 +437,7 @@ def readSkin(f,path,curMeshObjects=0):
     reader.seek(4*linkCount,1)
     skelCrc32 = reader.read_uint32()
     if (skelCrc32 != 0):
-        rig = execute(skelCrc32,rootpath)
+        rig = execute(skelCrc32,namecrc32,rootpath)
     
     #print("skel_z is totes: ", skelCrc32)
     reader.seek(16,1)
@@ -503,6 +504,7 @@ def readSkin(f,path,curMeshObjects=0):
     boneNames.clear()
     bones.clear()
     boneTrans.clear()
+    boneRot.clear()
     
     return curMeshObjects + skinSectionCount
 
