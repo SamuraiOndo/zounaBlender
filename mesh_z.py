@@ -297,7 +297,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
     vertexcount = reader.read_uint16()
     vertexSize = reader.read_uint16()
     if (vertexSize == 24):
-        print("!!!!!! SKIPPED (24B vertices): " + name + ".Mesh_Z")
+        #print("!!!!!! SKIPPED (24B vertices): " + name + ".Mesh_Z")
         return
     vertexStart = reader.pos()
     reader.seek(vertexcount*vertexSize,1)
@@ -375,6 +375,22 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
                         meshBoneCrc32s[i][curBoneIndex] = curBoneName
                         
                     vert[weight_layer][boneNames.index(str(curBoneName))] = weights[k]
+            elif (vertexSize == 48):
+                weightIndex = reader.read_float()
+                reader.read_float()
+                reader.read_float()
+                reader.read_float()
+                weight = reader.read_float()
+                if (weight != 0.0):
+                    curBoneIndex = int(weightIndex//6)
+                    
+                    curBoneName = meshBoneCrc32s[i][curBoneIndex]
+
+                    if (curBoneName == 4294967295 or curBoneName == 4294967294):
+                        curBoneName = meshBoneCrc32s[i-1][curBoneIndex]
+                        meshBoneCrc32s[i][curBoneIndex] = curBoneName
+                        
+                    vert[weight_layer][boneNames.index(str(curBoneName))] = weight
             else:
                 reader.read_bytes(vertexSize - 28)
                 
@@ -421,7 +437,8 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
     globalMeshObjects.append(meshObjects)
 
 
-def readSkin(f,path,curMeshObjects=0):
+def readSkin(f,path):
+    #print("new skin, globalMeshes: " + str(globalMeshObjects))
     rootpath = os.path.dirname(path)
     subSectionMaterialIndices = []
     reader = binary_reader.BinaryReader(f.read())
@@ -438,7 +455,11 @@ def readSkin(f,path,curMeshObjects=0):
     skelCrc32 = reader.read_uint32()
     if (skelCrc32 != 0):
         rig = execute(skelCrc32,namecrc32,rootpath)
-    
+    else:
+        ShowMessageBox("Unsupported Skin_Z", "Alert", 'ERROR')
+        #print("No skel skin (??) : " + str(namecrc32))
+        return
+
     #print("skel_z is totes: ", skelCrc32)
     reader.seek(16,1)
     reader.seek(74,1)
@@ -493,7 +514,7 @@ def readSkin(f,path,curMeshObjects=0):
         mf = open(meshName, "rb")
         readMesh_Z(mf,subSectionMaterialIndices,rootpath,meshBoneCrc32s)
         
-    for i in range(curMeshObjects, curMeshObjects+skinSectionCount):
+    for i in range(0, len(globalMeshObjects)):
         for mesh_obj in globalMeshObjects[i]:
             mesh_obj.parent = rig
             modifier = mesh_obj.modifiers.new('Armature Rig', 'ARMATURE')
@@ -505,8 +526,7 @@ def readSkin(f,path,curMeshObjects=0):
     bones.clear()
     boneTrans.clear()
     boneRot.clear()
-    
-    return curMeshObjects + skinSectionCount
+    globalMeshObjects.clear()
 
 def loadAll(path):
     curMeshObjs = 0
@@ -517,7 +537,7 @@ def loadAll(path):
             f = open(os.path.join(rootpath, file), "rb")
             print("loading: " + os.path.join(path, file))
             
-            curMeshObjs = readSkin(f.curMeshObjs)
+            readSkin(f,path)
             
     for file in os.listdir(rootpath):
         
@@ -541,6 +561,13 @@ def loadOne(path):
         print("loading: " + path)
             
         readMesh_Z(f,[])
+
+def ShowMessageBox(message = "", title = "Message Box", icon = 'INFO'):
+
+    def draw(self, context):
+        self.layout.label(text=message)
+
+    bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 # Load specific skin/mesh
 def load(self, context, filepath):
