@@ -442,4 +442,6 @@ def load(self, context, filepath):
     rootpath = os.path.dirname(filepath)
     f = open(pathOne,"rb")
     readAnimation_Z(f,bpy.context.active_object,0)
+    f.close()
+    
     return True

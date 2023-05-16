@@ -8,9 +8,9 @@ from bpy.utils import unregister_class
 from typing import Tuple,List
 
 bl_info = {
-    "name": "Skin_Z,Anim_Z Import",
+    "name": "Skin_Z, Anim_Z Import",
     "author": "Violet and Sabe",
-    "version": (0, 0, 1),
+    "version": (0, 2, 0),
     "blender": (2, 80, 0),
     "location": "File > Import",
     "description": "Import Skin_Z, Anim_Z",
@@ -34,7 +34,7 @@ class ImportSkinZ(bpy.types.Operator, ImportHelper):
             ("Wall-E","Wall-E","Import Wall-E Skin_Z"),
         ]
 
-    #gameVersion: EnumProperty(items=blender_props(),  name="Imported File Version", default=0)
+    gameVersion: EnumProperty(items=blender_props(),  name="Imported File Version", default=0)
     files: CollectionProperty(type=bpy.types.PropertyGroup)
 
     def execute(self, context):
