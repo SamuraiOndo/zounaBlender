@@ -356,7 +356,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
             normals2.append([ny,nz,nx])
             weightIndices = []
             weights = []
-            if (vertexSize == 60):
+            if vertexSize == 60 and meshBoneCrc32s:
                 wI1 = reader.read_float()
                 wI2 = reader.read_float()
                 wI3 = reader.read_float()
@@ -382,7 +382,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
                         meshBoneCrc32s[i][curBoneIndex] = curBoneName
                         
                     vert[weight_layer][boneNames.index(str(curBoneName))] = weights[k]
-            elif (vertexSize == 48):
+            elif vertexSize == 48 and meshBoneCrc32s:
                 weightIndex = reader.read_float()
                 reader.read_float()
                 reader.read_float()
@@ -460,12 +460,13 @@ def readSkin(f,path):
     linkCount = reader.read_uint32()
     reader.seek(4*linkCount,1)
     skelCrc32 = reader.read_link(linkfmt)
-    if (skelCrc32 != 0):
+    rig = None
+    if skelCrc32 != 0:
         rig = execute(skelCrc32,namecrc32,rootpath)
     else:
-        ShowMessageBox("Unsupported Skin_Z", "Alert", 'ERROR')
+        ShowMessageBox("Unsupported Skin_Z!! Skeleton will NOT be loaded", "Alert", 'ERROR')
         #print("No skel skin (??) : " + str(namecrc32))
-        return
+        # return
 
     #print("skel_z is totes: ", skelCrc32)
     reader.seek(16,1)
@@ -519,15 +520,16 @@ def readSkin(f,path):
             boneCrc32ForSection = []
         meshName = ((rootpath + os.sep + str(meshCrc32[i])) + ".Mesh_Z")
         mf = open(meshName, "rb")
-        readMesh_Z(mf,subSectionMaterialIndices,rootpath,meshBoneCrc32s)
-        
-    for i in range(0, len(globalMeshObjects)):
-        for mesh_obj in globalMeshObjects[i]:
-            mesh_obj.parent = rig
-            modifier = mesh_obj.modifiers.new('Armature Rig', 'ARMATURE')
-            modifier.object = rig
-            modifier.use_bone_envelopes = False
-            modifier.use_vertex_groups = True
+        readMesh_Z(mf,subSectionMaterialIndices,rootpath,meshBoneCrc32s if rig else [])
+    
+    if rig:
+        for i in range(0, len(globalMeshObjects)):
+            for mesh_obj in globalMeshObjects[i]:
+                mesh_obj.parent = rig
+                modifier = mesh_obj.modifiers.new('Armature Rig', 'ARMATURE')
+                modifier.object = rig
+                modifier.use_bone_envelopes = False
+                modifier.use_vertex_groups = True
             
     # Animation_Z Loading (Remove False in the if and manually set anim name in path to load)
     if False and rig != None:

@@ -17,6 +17,18 @@ bl_info = {
     "category": "Import-Export"
 }
 
+def version_props(file: str) -> List[Tuple[str,str,str]]:
+    return [
+        ("Ratatouille","Ratatouille",f"Import Ratatouille {file}"),
+        ("WALL-E","WALL-E",f"Import WALL-E {file}"),
+    ]
+
+def format_props() -> List[Tuple[str,str,str]]:
+    return [
+        ("DPC","DPC","Use link format used by DPC (unsigned int)"),
+        ("BFF","BFF","Use link format used by BFF (signed int)"),
+    ]
+
 class ImportSkinZ(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.skinz"
     bl_label = "Import Skin_Z"
@@ -26,21 +38,7 @@ class ImportSkinZ(bpy.types.Operator, ImportHelper):
     filename_ext = ".Skin_Z"
     filter_glob: StringProperty(default="*.Skin_Z", options={'HIDDEN'})
 
-    @staticmethod
-    def version_props() -> List[Tuple[str,str,str]]:
-        return [
-            ("Ratatouille","Ratatouille","Import Ratatouille Skin_Z"),
-            ("WALL-E","WALL-E","Import WALL-E Skin_Z"),
-        ]
-    
-    @staticmethod
-    def format_props() -> List[Tuple[str,str,str]]:
-        return [
-            ("DPC","DPC","Use link format used by DPC (unsigned int)"),
-            ("BFF","BFF","Use link format used by BFF (signed int)"),
-        ]
-
-    gameVersion: EnumProperty(items=version_props(),  name="Imported File Version", default=0)
+    gameVersion: EnumProperty(items=version_props("Skin_Z"),  name="Imported File Version", default=0)
     linkFormat: EnumProperty(items=format_props(), name="Link Format", default=0)
     files: CollectionProperty(type=bpy.types.PropertyGroup)
 
@@ -69,20 +67,6 @@ class ImportAnimZ(bpy.types.Operator, ImportHelper):
     filename_ext = ".Anim_Z"
     filter_glob: StringProperty(default="*.Animation_Z", options={'HIDDEN'})
 
-    @staticmethod
-    def blender_props() -> List[Tuple[str,str,str]]:
-        return [
-            ("Ratatouille","Ratatouille","Import Ratatouille Animation_Z"),
-            ("WALL-E","WALL-E","Import WALL-E Animation_Z"),
-        ]
-    
-    @staticmethod
-    def format_props() -> List[Tuple[str,str,str]]:
-        return [
-            ("DPC","DPC","Use link format used by DPC (unsigned int)"),
-            ("BFF","BFF","Use link format used by BFF (signed int)"),
-        ]
-
     #gameVersion: EnumProperty(items=blender_props(),  name="Imported File Version", default=0)
     linkFormat: EnumProperty(items=format_props(), name="Link Format", default=0)
     files: CollectionProperty(type=bpy.types.PropertyGroup)
@@ -108,20 +92,17 @@ def menu_func_skinz_import(self, context):
 def menu_func_animz_import(self, context):
     self.layout.operator(ImportAnimZ.bl_idname, text="Animation_Z (.Animation_Z)")
 
-
 def register():
     bpy.utils.register_class(ImportSkinZ)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_skinz_import)
     bpy.utils.register_class(ImportAnimZ)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_skinz_import)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_animz_import)
-
 
 def unregister():
     bpy.utils.unregister_class(ImportSkinZ)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_skinz_import)
     bpy.utils.unregister_class(ImportAnimZ)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_skinz_import)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_animz_import)
-
 
 if __name__ == "__main__":
     register()
