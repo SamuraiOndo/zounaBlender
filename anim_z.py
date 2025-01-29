@@ -8,6 +8,10 @@ from mathutils import Vector
 from mathutils import Quaternion
 from mathutils import Euler
 import pathlib
+from . import format_helper
+
+linkfmt = "DPC"
+
 def readAnimation_Z(f, rig, maxFrames):
     animName = pathlib.Path(f.name).stem
     reader = binary_reader.BinaryReader(f.read())
@@ -19,9 +23,9 @@ def readAnimation_Z(f, rig, maxFrames):
     #print(str(decompressedsize))
     compressedsize = reader.read_uint32()
     #print(str(compressedsize))
-    classcrc32 = reader.read_uint32()
+    classcrc32 = reader.read_link(linkfmt)
     #print(str(classcrc32))
-    namecrc32 = str(reader.read_uint32())
+    namecrc32 = str(reader.read_link(linkfmt))
     #print(namecrc32)
     reader.read_bytes(linksize)
     durationInSec = reader.read_float()

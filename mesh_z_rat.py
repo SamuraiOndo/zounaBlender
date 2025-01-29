@@ -1,4 +1,4 @@
-import binary_reader
+from . import binary_reader
 import bpy
 import os
 import bmesh
@@ -8,6 +8,7 @@ from mathutils import Vector
 from mathutils import Quaternion
 from mathutils import Euler
 import pathlib
+from . import format_helper
 
 rootpath = ""
 excludedMeshes = []
@@ -18,7 +19,7 @@ boneTrans = []
 boneRot = []
 boneTrs = []
 globalMeshObjects = []
-
+linkfmt = "DPC"
 
 
 def bone_traversal(current):    
@@ -108,7 +109,7 @@ def readSkel_Z(bs):
     bs.seek(box_col_bones_count * 19 * 4, 1)
     
 def execute(skelCrc32,skinCrc32,rootpath):
-    bs = binary_reader.BinaryReader(open(rootpath + "\\" + (str(skelCrc32) + ".Skel_Z"), "rb").read())
+    bs = binary_reader.BinaryReader(open(rootpath + os.sep + (str(skelCrc32) + ".Skel_Z"), "rb").read())
 
     skel = readSkel_Z(bs)
     
@@ -197,7 +198,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
     decompressedsize = reader.read_uint32()
     compressedsize = reader.read_uint32()
     classcrc32 = reader.read_uint32()
-    namecrc32 = reader.read_uint32()
+    namecrc32 = reader.read_link(linkfmt)
     name = str(namecrc32)
     reader.seek(linksize + 32, whence=1)
     matCrc32Count = reader.read_uint32()
@@ -209,9 +210,9 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
         addMatIndices = True
         
     for i in range(matCrc32Count):
-        matCrc32List.append(str(reader.read_uint32()))
+        matCrc32List.append(str(reader.read_link(linkfmt)))
         if addMatIndices: subsectionMatIndices.append(i)
-    rootpath += "\\"
+    rootpath += os.sep
     for h in matCrc32List:
         try:
             mat = bpy.data.materials.new(name=str(h))
@@ -220,7 +221,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
             fe = open(material_z, "rb")
             reader2 = binary_reader.BinaryReader(fe.read())
             reader2.seek(0x20)
-            texturename = reader2.read_uint32()
+            texturename = reader2.read_link(linkfmt)
             strtexturename = str(texturename)
                 
             #open bitmap_z's and get dds from those automatically
@@ -454,11 +455,11 @@ def readSkin(f,path):
     decompressedsize = reader.read_uint32()
     compressedsize = reader.read_uint32()
     classcrc32 = reader.read_uint32()
-    namecrc32 = reader.read_uint32()
+    namecrc32 = reader.read_link(linkfmt)
     linkCrc32 = reader.read_uint32()
     linkCount = reader.read_uint32()
     reader.seek(4*linkCount,1)
-    skelCrc32 = reader.read_uint32()
+    skelCrc32 = reader.read_link(linkfmt)
     if (skelCrc32 != 0):
         rig = execute(skelCrc32,namecrc32,rootpath)
     else:
@@ -472,7 +473,7 @@ def readSkin(f,path):
     meshCrc32Count = reader.read_uint32()
     meshCrc32 = []
     for i in range(meshCrc32Count):
-        curMesh = reader.read_uint32();
+        curMesh = reader.read_link(linkfmt)
         meshCrc32.append(curMesh)
         excludedMeshes.append(rootpath + str(curMesh) + ".Mesh_Z")
     for i in range(reader.read_uint32()):
@@ -503,7 +504,7 @@ def readSkin(f,path):
         curIndex = -1
         skinSubSectionCount = reader.read_uint32()
         for j in range(skinSubSectionCount):
-            curMaterial = reader.read_uint32()
+            curMaterial = reader.read_link(linkfmt)
             if (curMaterial != oldMaterial):
                 curIndex += 1
             for x in range(7):
@@ -516,7 +517,7 @@ def readSkin(f,path):
             oldMaterial = curMaterial;
             meshBoneCrc32s.append(boneCrc32ForSection)
             boneCrc32ForSection = []
-        meshName = ((rootpath + "\\" + str(meshCrc32[i])) + ".Mesh_Z")
+        meshName = ((rootpath + os.sep + str(meshCrc32[i])) + ".Mesh_Z")
         mf = open(meshName, "rb")
         readMesh_Z(mf,subSectionMaterialIndices,rootpath,meshBoneCrc32s)
         
@@ -570,8 +571,9 @@ def loadAll(path):
             print('-------------------------------------------------------------')
             readMesh_Z(f,[])
             
-def loadOne(path):
-    
+def loadOne(path, link_format="DPC"):
+    global linkfmt
+    linkfmt = link_format
     if path.endswith(".Skin_Z"):
         f = open(path, "rb")
         print("loading: " + path)

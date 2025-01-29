@@ -10,13 +10,12 @@ from typing import Tuple,List
 bl_info = {
     "name": "Skin_Z, Anim_Z Import",
     "author": "Violet and Sabe",
-    "version": (0, 2, 0),
-    "blender": (2, 80, 0),
+    "version": (0, 3, 0),
+    "blender": (4, 3, 2),
     "location": "File > Import",
     "description": "Import Skin_Z, Anim_Z",
     "category": "Import-Export"
 }
-    
 
 class ImportSkinZ(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.skinz"
@@ -28,13 +27,21 @@ class ImportSkinZ(bpy.types.Operator, ImportHelper):
     filter_glob: StringProperty(default="*.Skin_Z", options={'HIDDEN'})
 
     @staticmethod
-    def blender_props() -> List[Tuple[str,str,str]]:
+    def version_props() -> List[Tuple[str,str,str]]:
         return [
             ("Ratatouille","Ratatouille","Import Ratatouille Skin_Z"),
-            ("Wall-E","Wall-E","Import Wall-E Skin_Z"),
+            ("WALL-E","WALL-E","Import WALL-E Skin_Z"),
+        ]
+    
+    @staticmethod
+    def format_props() -> List[Tuple[str,str,str]]:
+        return [
+            ("DPC","DPC","Use link format used by DPC (unsigned int)"),
+            ("BFF","BFF","Use link format used by BFF (signed int)"),
         ]
 
-    gameVersion: EnumProperty(items=blender_props(),  name="Imported File Version", default=0)
+    gameVersion: EnumProperty(items=version_props(),  name="Imported File Version", default=0)
+    linkFormat: EnumProperty(items=format_props(), name="Link Format", default=0)
     files: CollectionProperty(type=bpy.types.PropertyGroup)
 
     def execute(self, context):
@@ -52,6 +59,7 @@ class ImportSkinZ(bpy.types.Operator, ImportHelper):
     @classmethod
     def poll(self, context):
         return True
+
 class ImportAnimZ(bpy.types.Operator, ImportHelper):
     bl_idname = "import_scene.animz"
     bl_label = "Import Animation_Z"
@@ -65,10 +73,18 @@ class ImportAnimZ(bpy.types.Operator, ImportHelper):
     def blender_props() -> List[Tuple[str,str,str]]:
         return [
             ("Ratatouille","Ratatouille","Import Ratatouille Animation_Z"),
-            ("Wall-E","Wall-E","Import Wall-E Animation_Z"),
+            ("WALL-E","WALL-E","Import WALL-E Animation_Z"),
+        ]
+    
+    @staticmethod
+    def format_props() -> List[Tuple[str,str,str]]:
+        return [
+            ("DPC","DPC","Use link format used by DPC (unsigned int)"),
+            ("BFF","BFF","Use link format used by BFF (signed int)"),
         ]
 
     #gameVersion: EnumProperty(items=blender_props(),  name="Imported File Version", default=0)
+    linkFormat: EnumProperty(items=format_props(), name="Link Format", default=0)
     files: CollectionProperty(type=bpy.types.PropertyGroup)
 
     def execute(self, context):
