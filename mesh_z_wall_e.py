@@ -1,4 +1,4 @@
-import binary_reader
+from . import binary_reader
 import bpy
 import os
 import bmesh
@@ -8,6 +8,7 @@ from mathutils import Vector
 from mathutils import Quaternion
 from mathutils import Euler
 import pathlib
+from . import format_helper
 
 rootpath = ""
 excludedMeshes = []
@@ -18,6 +19,7 @@ boneTrans = []
 boneRot = []
 boneTrs = []
 globalMeshObjects = []
+linkfmt = "DPC"
 
 def readAnimation_Z(f, rig, maxFrames):
     animName = pathlib.Path(f.name).stem
@@ -536,7 +538,7 @@ def readSkel_Z(bs):
     bs.seek(box_col_bones_count * 19 * 4, 1)
     
 def execute(skelCrc32,skinCrc32,rootpath):
-    bs = binary_reader.BinaryReader(open(rootpath + "\\" + (str(skelCrc32) + ".Skel_Z"), "rb").read())
+    bs = binary_reader.BinaryReader(open(rootpath + os.sep + (str(skelCrc32) + ".Skel_Z"), "rb").read())
 
     skel = readSkel_Z(bs)
     
@@ -626,7 +628,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
     decompressedsize = reader.read_uint32()
     compressedsize = reader.read_uint32()
     classcrc32 = reader.read_uint32()
-    namecrc32 = reader.read_uint32()
+    namecrc32 = reader.read_link(linkfmt)
     name = str(namecrc32)
     print("loading mesh " + name)
     reader.seek(linksize, whence=1)
@@ -648,9 +650,9 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
         addMatIndices = True
         
     for i in range(matCrc32Count):
-        matCrc32List.append(str(reader.read_uint32()))
+        matCrc32List.append(str(reader.read_link(linkfmt)))
         if addMatIndices: subsectionMatIndices.append(i)
-    rootpath += "\\"
+    rootpath += os.sep
     for h in matCrc32List:
         try:
             mat = bpy.data.materials.new(name=str(h))
@@ -659,7 +661,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
             fe = open(material_z, "rb")
             reader2 = binary_reader.BinaryReader(fe.read())
             reader2.seek(0x20)
-            texturename = reader2.read_uint32()
+            texturename = reader2.read_link(linkfmt)
             strtexturename = str(texturename)
                 
             #open bitmap_z's and get dds from those automatically
@@ -808,7 +810,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
             normals2.append([nx,nz,ny])
             weightIndices = []
             weights = []
-            if (vertexSize == 60):
+            if vertexSize == 60 and meshBoneCrc32s:
                 wI1 = reader.read_float()
                 wI2 = reader.read_float()
                 wI3 = reader.read_float()
@@ -835,7 +837,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
                     if (curBoneName == 4294967295 or curBoneName == 4294967294):
                         continue;    
                     vert[weight_layer][boneNames.index(str(curBoneName))] = weights[k]
-            elif (vertexSize == 48):
+            elif vertexSize == 48 and meshBoneCrc32s:
                 weightIndex = reader.read_float()
                 reader.read_float()
                 reader.read_float()
@@ -853,7 +855,6 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
                     vert[weight_layer][boneNames.index(str(curBoneName))] = weight
             else:
                 reader.read_bytes(vertexSize - 28)
-                
         
         reader.seek(faceStart + faceBufferOffset*2)
         
@@ -874,7 +875,7 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
             
         newmesh = bpy.data.meshes.new('newmesh')
         bm.to_mesh(newmesh)
-        newmesh.create_normals_split()
+        # newmesh.create_normals_split()
         newmesh.normals_split_custom_set_from_vertices(normals2)
         
         newobject = bpy.data.objects.new(("Mesh_"+name + "_VertGrp_" + str(i)), newmesh)
@@ -883,8 +884,8 @@ def readMesh_Z(f,subsectionMatIndices,rootpath,meshBoneCrc32s=None):
         bpy.context.view_layer.active_layer_collection.collection.objects.link(newobject)
         normals2.clear()
         uv_list.clear()
-        newmesh.auto_smooth_angle = 0
-        newmesh.use_auto_smooth = True
+        # newmesh.auto_smooth_angle = 0
+        # newmesh.use_auto_smooth = True
         newobject.data.materials.append(bpy.data.materials.get(matCrc32List[subsectionMatIndices[i]]))
         
         for boneName in boneNames:
@@ -911,17 +912,18 @@ def readSkin(f,path):
     decompressedsize = reader.read_uint32()
     compressedsize = reader.read_uint32()
     classcrc32 = reader.read_uint32()
-    namecrc32 = reader.read_uint32()
+    namecrc32 = reader.read_link(linkfmt)
     linkCrc32 = reader.read_uint32()
     linkCount = reader.read_uint32()
     reader.seek(4*linkCount,1)
-    skelCrc32 = reader.read_uint32()
-    if (skelCrc32 != 0):
+    skelCrc32 = reader.read_link(linkfmt)
+    rig = None
+    if skelCrc32 != 0:
         rig = execute(skelCrc32,namecrc32,rootpath)
     else:
-        ShowMessageBox("Unsupported Skin_Z", "Alert", 'ERROR')
+        ShowMessageBox("Unsupported Skin_Z!! Skeleton will NOT be loaded", "Alert", 'ERROR')
         #print("No skel skin (??) : " + str(namecrc32))
-        return
+        # return
 
     #print("skel_z is totes: ", skelCrc32)
     reader.seek(16,1)
@@ -929,7 +931,7 @@ def readSkin(f,path):
     meshCrc32Count = reader.read_uint32()
     meshCrc32 = []
     for i in range(meshCrc32Count):
-        curMesh = reader.read_uint32();
+        curMesh = reader.read_link(linkfmt);
         meshCrc32.append(curMesh)
         excludedMeshes.append(rootpath + str(curMesh) + ".Mesh_Z")
     for i in range(reader.read_uint32()):
@@ -960,7 +962,7 @@ def readSkin(f,path):
         curIndex = -1
         skinSubSectionCount = reader.read_uint32()
         for j in range(skinSubSectionCount):
-            curMaterial = reader.read_uint32()
+            curMaterial = reader.read_link(linkfmt)
             if (curMaterial != oldMaterial):
                 curIndex += 1
             for x in range(7):
@@ -973,17 +975,18 @@ def readSkin(f,path):
             oldMaterial = curMaterial;
             meshBoneCrc32s.append(boneCrc32ForSection)
             boneCrc32ForSection = []
-        meshName = ((rootpath + "\\" + str(meshCrc32[i])) + ".Mesh_Z")
+        meshName = ((rootpath + os.sep + str(meshCrc32[i])) + ".Mesh_Z")
         mf = open(meshName, "rb")
-        readMesh_Z(mf,subSectionMaterialIndices,rootpath,meshBoneCrc32s)
-        
-    for i in range(0, len(globalMeshObjects)):
-        for mesh_obj in globalMeshObjects[i]:
-            mesh_obj.parent = rig
-            modifier = mesh_obj.modifiers.new('Armature Rig', 'ARMATURE')
-            modifier.object = rig
-            modifier.use_bone_envelopes = False
-            modifier.use_vertex_groups = True
+        readMesh_Z(mf,subSectionMaterialIndices,rootpath,meshBoneCrc32s if rig else [])
+    
+    if rig:
+        for i in range(0, len(globalMeshObjects)):
+            for mesh_obj in globalMeshObjects[i]:
+                mesh_obj.parent = rig
+                modifier = mesh_obj.modifiers.new('Armature Rig', 'ARMATURE')
+                modifier.object = rig
+                modifier.use_bone_envelopes = False
+                modifier.use_vertex_groups = True
             
     # Animation_Z Loading (Remove False in the if and manually set anim name in path to load)
     if False and rig != None:
@@ -1028,8 +1031,9 @@ def loadAll(path):
            # print('-------------------------------------------------------------')
            # readMesh_Z(f,[])
             
-def loadOne(path):
-    
+def loadOne(path, link_format="DPC"):
+    global linkfmt
+    linkfmt = link_format
     if path.endswith(".Skin_Z"):
         f = open(path, "rb")
         print("loading: " + path)
